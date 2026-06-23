@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Earth's Rotation — Interactive Longitude & Hours</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060b16;
+    --bg-card: rgba(13, 23, 45, 0.6);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.15);
+    --ink: #f1f5f9;
+    --muted: #8ea5c8;
+    --accent: #ffcf4d;        /* gold for active meridian */
+    --accent-glow: rgba(255, 207, 77, 0.3);
+    --grid: #3b82f6;          /* vibrant blue */
+    --grid-back: rgba(59, 130, 246, 0.18);
+    --west: #06b6d4;          /* teal-cyan */
+    --east: #f97316;          /* orange */
+    --success: #10b981;       /* emerald */
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; }
+  
+  body {
+    background: radial-gradient(circle at 50% 20%, #0f1c3f 0%, var(--bg) 70%);
+    color: var(--ink);
+    font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+    padding: 32px 16px 64px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .wrap {
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
+    backdrop-filter: blur(10px);
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  h1 {
+    font-size: clamp(24px, 5vw, 36px);
+    font-weight: 800;
+    margin: 0 0 8px;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #fff 40%, var(--muted) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: clamp(14px, 3.5vw, 16px);
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  /* Interactive Stage */
+  .stage {
+    position: relative;
+    width: min(420px, 86vw);
+    aspect-ratio: 1/1;
+    margin: 16px auto 16px;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+  }
+  .stage:active {
+    cursor: grabbing;
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    overflow: visible;
+  }
+
+  /* Direction Labels */
+  .dir {
+    font-weight: 800;
+    font-size: 28px;
+    fill: var(--muted);
+    text-anchor: middle;
+    dominant-baseline: middle;
+    transition: fill 0.3s, filter 0.3s, opacity 0.3s;
+    opacity: 0.6;
+  }
+  .dir.active {
+    opacity: 1;
+  }
+  .dir.blink {
+    animation: blink 0.6s ease-in-out infinite;
+  }
+  #lblWest.active { fill: var(--west); filter: drop-shadow(0 0 8px var(--west)); }
+  #lblEast.active { fill: var(--east); filter: drop-shadow(0 0 8px var(--east)); }
+  #lblWest.blink { fill: var(--west); filter: drop-shadow(0 0 12px var(--west)); }
+  #lblEast.blink { fill: var(--east); filter: drop-shadow(0 0 12px var(--east)); }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+
+  /* Controls Panel */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 16px;
+  }
+
+  button {
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 16px;
+    color: #050a15;
+    background: linear-gradient(135deg, var(--accent) 0%, #ffbd1e 100%);
+    border: 0;
+    border-radius: 14px;
+    padding: 14px 28px;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.2s, filter 0.2s;
+    box-shadow: 0 6px 20px var(--accent-glow);
+  }
+  button:hover {
+    box-shadow: 0 8px 24px rgba(255, 207, 77, 0.5);
+    filter: brightness(1.05);
+  }
+  button:active {
+    transform: translateY(1.5px);
+  }
+  button.secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    box-shadow: none;
+  }
+  button.secondary:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--border-hover);
+    box-shadow: none;
+  }
+  button:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 2px;
+  }
+
+  /* Speed Slider Container */
+  .speed {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 10px 16px;
+    font-size: 14px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .speed label { white-space: nowrap; }
+  input[type=range] {
+    accent-color: var(--accent);
+    width: 130px;
+    cursor: pointer;
+  }
+  .speed b {
+    color: var(--ink);
+    min-width: 80px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Readout panel */
+  .panel {
+    margin: 24px auto 0;
+    max-width: 600px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  }
+  
+  .readout {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .metric {
+    flex: 1;
+    min-width: 140px;
+    text-align: center;
+    padding: 8px;
+    position: relative;
+  }
+  .metric:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: -10px;
+    top: 20%;
+    height: 60%;
+    width: 1px;
+    background: var(--border);
+  }
+  @media (max-width: 480px) {
+    .metric:not(:last-child)::after { display: none; }
+    .metric { border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+    .metric:last-child { border-bottom: 0; }
+  }
+
+  .metric span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+  .metric strong {
+    display: block;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    margin-top: 6px;
+  }
+
+  #status {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--border);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--success);
+    min-height: 24px;
+    text-align: center;
+    line-height: 1.5;
+    transition: color 0.3s;
+  }
+  
+  .hint {
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    margin-top: 20px;
+    line-height: 1.6;
+    max-width: 580px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    border: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dir.blink { animation: none; opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Earth's Rotation</h1>
+    <p>One full rotation = 24 hours = 360°. The Earth turns 15° per hour from West to East.</p>
+  </header>
+
+  <!-- Interactive Globe Container -->
+  <div class="stage" id="globeStage" title="Drag left or right to rotate the globe manually.">
+    <svg viewBox="0 0 400 400" role="img" aria-label="An interactive 3D globe showing lines of longitude rotating. Drag to rotate.">
+      <defs>
+        <!-- Outer Glow Filters -->
+        <filter id="atmosphereGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="8" result="blur"/>
+          <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+        </filter>
+        
+        <!-- Base Globe Gradient (3D Shading) -->
+        <radialGradient id="sphereGrad" cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stop-color="#1e40af"/>
+          <stop offset="60%" stop-color="#0f172a"/>
+          <stop offset="100%" stop-color="#020617"/>
+        </radialGradient>
+
+        <!-- Ambient Rim Glow -->
+        <radialGradient id="rimGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="90%" stop-color="#3b82f6" stop-opacity="0"/>
+          <stop offset="98%" stop-color="#60a5fa" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#93c5fd" stop-opacity="0.8"/>
+        </radialGradient>
+
+        <!-- Clip to keep lines on the sphere disk -->
+        <clipPath id="globeClip">
+          <circle cx="200" cy="200" r="120"/>
+        </clipPath>
+      </defs>
+
+      <!-- Background Stars (Populated via JS) -->
+      <g id="stars" opacity="0.65"></g>
+
+      <!-- Direction Labels -->
+      <text id="lblNorth" class="dir active" x="200" y="44">N</text>
+      <text id="lblSouth" class="dir active" x="200" y="360">S</text>
+      <text id="lblWest"  class="dir" x="40"  y="202">W</text>
+      <text id="lblEast"  class="dir" x="360" y="202">E</text>
+
+      <!-- Outer Atmosphere Glow -->
+      <circle cx="200" cy="200" r="121" fill="none" stroke="#2563eb" stroke-width="3" opacity="0.25" filter="url(#atmosphereGlow)"/>
+
+      <!-- Globe Base Sphere -->
+      <circle cx="200" cy="200" r="120" fill="url(#sphereGrad)"/>
+
+      <!-- Clip Container for rotating grid lines -->
+      <g clip-path="url(#globeClip)">
+        <!-- Static Latitude Lines (Parallels) -->
+        <g stroke="rgba(255,255,255,0.08)" stroke-width="1" fill="none">
+          <!-- Equator (straight) -->
+          <line x1="80" y1="200" x2="320" y2="200" stroke="var(--grid)" stroke-width="1.2" opacity="0.3"/>
+          <!-- Other parallels (orthographic straight lines) -->
+          <line x1="96" y1="140" x2="304" y2="140"/>
+          <line x1="140" y1="96" x2="260" y2="96"/>
+          <line x1="96" y1="260" x2="304" y2="260"/>
+          <line x1="140" y1="304" x2="260" y2="304"/>
+        </g>
+
+        <!-- Dynamic Longitude Lines (Meridians) -->
+        <g id="meridiansGroup"></g>
+      </g>
+
+      <!-- 3D Rim Highlights -->
+      <circle cx="200" cy="200" r="120" fill="url(#rimGlow)" pointer-events="none"/>
+      <circle cx="200" cy="200" r="120" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" pointer-events="none"/>
+    </svg>
+  </div>
+
+  <!-- Simulation Controls -->
+  <div class="controls">
+    <button id="startBtn">Start rotation</button>
+    <button id="resetBtn" class="secondary">Reset</button>
+    <div class="speed">
+      <label for="speed">Animation Speed</label>
+      <input id="speed" type="range" min="0.3" max="4" step="0.1" value="1">
+      <b id="speedVal">1 hr / 1.5s</b>
+    </div>
+  </div>
+
+  <!-- Readout Panel -->
+  <div class="panel">
+    <div class="readout">
+      <div class="metric">
+        <span>Hours elapsed</span>
+        <strong id="hours">0</strong>
+      </div>
+      <div class="metric">
+        <span>Total Rotation</span>
+        <strong id="degrees">0°</strong>
+      </div>
+      <div class="metric">
+        <span>Front-Facing Longitude</span>
+        <strong id="lon">0°</strong>
+      </div>
+    </div>
+    <!-- ARIA live status region -->
+    <div id="status" role="status" aria-live="polite">Ready. Press Start to begin at 0° longitude (the Prime Meridian).</div>
+  </div>
+
+  <p class="hint">
+    <strong>Interaction Tip:</strong> You can click and drag the globe horizontally to rotate it manually and explore different longitudes! 
+    West blinks as rotation starts, both poles stay lit, and East blinks when 360° is completed.
+  </p>
+  <div id="srLive" class="sr-only" aria-live="assertive"></div>
+</div>
+
+<script>
+(() => {
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const meridiansG = document.getElementById('meridiansGroup');
+  const starsG = document.getElementById('stars');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const speed = document.getElementById('speed');
+  const speedVal = document.getElementById('speedVal');
+  const hoursEl = document.getElementById('hours');
+  const degEl = document.getElementById('degrees');
+  const lonEl = document.getElementById('lon');
+  const statusEl = document.getElementById('status');
+  const srLive = document.getElementById('srLive');
+  const lblWest = document.getElementById('lblWest');
+  const lblEast = document.getElementById('lblEast');
+  const globeStage = document.getElementById('globeStage');
+
+  const BASE_HOUR_MS = 1500;
+
+  // Populate Background Starfield
+  for (let i = 0; i < 60; i++) {
+    const star = document.createElementNS(SVGNS, 'circle');
+    star.setAttribute('cx', Math.random() * 400);
+    star.setAttribute('cy', Math.random() * 400);
+    star.setAttribute('r', (Math.random() * 1.2 + 0.4).toFixed(1));
+    star.setAttribute('fill', '#ffffff');
+    star.setAttribute('opacity', (Math.random() * 0.7 + 0.3).toFixed(2));
+    starsG.appendChild(star);
+  }
+
+  // Create 12 Longitude lines
+  const N = 12;
+  const meridians = [];
+  for (let i = 0; i < N; i++) {
+    const el = document.createElementNS(SVGNS, 'path');
+    el.setAttribute('fill', 'none');
+    meridiansG.appendChild(el);
+    meridians.push({
+      el,
+      base: i * (360 / N)
+    });
+  }
+
+  let angle = 0;
+  let running = false;
+  let rafId = null;
+  let lastTs = null;
+  let announcedHour = -1;
+
+  function hourMs() { 
+    return BASE_HOUR_MS / parseFloat(speed.value); 
+  }
+
+  function updateSpeedLabel() {
+    const s = (hourMs() / 1000);
+    speedVal.textContent = `1 hr / ${s.toFixed(1)}s`;
+  }
+
+  function drawMeridians() {
+    meridians.forEach(m => {
+      let phi = (m.base + angle) % 360;
+      if (phi > 180) phi -= 360;
+      if (phi < -180) phi += 360;
+
+      const rad = phi * Math.PI / 180;
+      const rx = Math.abs(Math.sin(rad)) * 120;
+      const sweep = Math.sin(rad) >= 0 ? 1 : 0;
+      
+      m.el.setAttribute('d', `M 200 80 A ${rx.toFixed(1)} 120 0 0 ${sweep} 200 320`);
+
+      const onFront = Math.abs(phi) <= 90;
+      const isFrontActive = onFront && Math.abs(phi) < 3.5; 
+
+      if (onFront) {
+        m.el.setAttribute('stroke', isFrontActive ? 'var(--accent)' : 'var(--grid)');
+        m.el.setAttribute('stroke-width', isFrontActive ? '2.5' : '1.2');
+        m.el.removeAttribute('stroke-dasharray');
+        const op = 0.35 + 0.55 * Math.cos(rad);
+        m.el.setAttribute('opacity', op.toFixed(2));
+      } else {
+        m.el.setAttribute('stroke', 'var(--grid)');
+        m.el.setAttribute('stroke-width', '0.8');
+        m.el.setAttribute('stroke-dasharray', '3,3');
+        m.el.setAttribute('opacity', '0.12');
+      }
+    });
+  }
+
+  function setReadout() {
+    const totalHours = angle / 15;
+    const wholeHours = Math.floor(totalHours + 1e-6);
+    hoursEl.textContent = wholeHours;
+    degEl.textContent = Math.round(angle) + '°';
+
+    let roundedAngle = Math.round(angle) % 360;
+    let lonStr = '';
+    if (roundedAngle === 0 || roundedAngle === 180) {
+      lonStr = `${roundedAngle}°`;
+    } else if (roundedAngle < 180) {
+      lonStr = `${roundedAngle}° W`;
+    } else {
+      lonStr = `${360 - roundedAngle}° E`;
+    }
+    lonEl.textContent = lonStr;
+  }
+
+  function announce(msg) {
+    statusEl.textContent = msg;
+    srLive.textContent = '';
+    setTimeout(() => { srLive.textContent = msg; }, 30);
+  }
+
+  function blink(el, on) { el.classList.toggle('blink', on); }
+  function active(el, on) { el.classList.toggle('active', on); }
+
+  function start() {
+    if (running) return;
+    if (angle >= 360) reset(); 
+    running = true;
+    startBtn.textContent = 'Pause';
+    announce('Rotation started at 0° longitude (Prime Meridian).');
+    
+    blink(lblWest, true); active(lblWest, true); active(lblEast, true);
+    setTimeout(() => { blink(lblWest, false); }, 1500);
+    
+    lastTs = null;
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function pause() {
+    running = false;
+    startBtn.textContent = 'Resume';
+    cancelAnimationFrame(rafId);
+    announce(`Paused at ${Math.round(angle)}° — ${Math.floor(angle / 15)} hours elapsed.`);
+  }
+
+  function tick(ts) {
+    if (!running) return;
+    if (lastTs === null) lastTs = ts;
+    const dt = ts - lastTs;
+    lastTs = ts;
+
+    const degPerMs = 15 / hourMs(); 
+    angle += dt * degPerMs;
+    if (angle >= 360) angle = 360;
+
+    drawMeridians();
+    setReadout();
+
+    const wholeHour = Math.floor(angle / 15 + 1e-6);
+    if (wholeHour > announcedHour && wholeHour <= 24) {
+      announcedHour = wholeHour;
+      const deg = wholeHour * 15;
+      if (wholeHour < 24) {
+        announce(`${wholeHour} hour${wholeHour > 1 ? 's' : ''} elapsed — rotated ${deg}°.`);
+      }
+    }
+
+    if (angle >= 360) {
+      finish();
+      return;
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function finish() {
+    running = false;
+    startBtn.textContent = 'Start rotation';
+    announce('24 hours (360°) completed — one full rotation! The Prime Meridian is back at front center.');
+    
+    blink(lblWest, false); active(lblWest, false);
+    blink(lblEast, true);
+    setTimeout(() => { blink(lblEast, false); active(lblEast, false); }, 3000);
+  }
+
+  function reset() {
+    running = false;
+    cancelAnimationFrame(rafId);
+    angle = 0; 
+    announcedHour = -1; 
+    lastTs = null;
+    startBtn.textContent = 'Start rotation';
+    blink(lblWest, false); blink(lblEast, false);
+    active(lblWest, false); active(lblEast, false);
+    drawMeridians(); 
+    setReadout();
+    announce('Ready. Press Start to begin at 0° longitude (the Prime Meridian).');
+  }
+
+  let isDragging = false;
+  let startX = 0;
+  let startAngle = 0;
+
+  function dragStart(e) {
+    isDragging = true;
+    if (running) pause();
+    startX = e.clientX || (e.touches && e.touches[0].clientX);
+    startAngle = angle;
+  }
+
+  function dragMove(e) {
+    if (!isDragging) return;
+    const x = e.clientX || (e.touches && e.touches[0].clientX);
+    const dx = x - startX;
+    angle = (startAngle - dx * 0.5) % 360;
+    if (angle < 0) angle += 360;
+    
+    drawMeridians();
+    setReadout();
+  }
+
+  function dragEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+  }
+
+  startBtn.addEventListener('click', () => { running ? pause() : start(); });
+  resetBtn.addEventListener('click', reset);
+  speed.addEventListener('input', updateSpeedLabel);
+
+  globeStage.addEventListener('mousedown', dragStart);
+  window.addEventListener('mousemove', dragMove);
+  window.addEventListener('mouseup', dragEnd);
+
+  globeStage.addEventListener('touchstart', dragStart, { passive: true });
+  window.addEventListener('touchmove', dragMove, { passive: true });
+  window.addEventListener('touchend', dragEnd);
+
+  updateSpeedLabel(); 
+  drawMeridians(); 
+  setReadout();
+})();
+</script>
+</body>
+</html>
