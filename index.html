@@ -38,7 +38,7 @@
   }
 
   .wrap {
-    max-width: 850px;
+    max-width: 900px;
     width: 100%;
     margin: 0 auto;
     backdrop-filter: blur(10px);
@@ -118,7 +118,7 @@
   .controls {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
     align-items: center;
     justify-content: center;
     margin-top: 16px;
@@ -132,7 +132,7 @@
     background: linear-gradient(135deg, var(--accent) 0%, #ffbd1e 100%);
     border: 0;
     border-radius: 14px;
-    padding: 12px 24px;
+    padding: 12px 22px;
     cursor: pointer;
     transition: transform 0.1s, box-shadow 0.2s, filter 0.2s;
     box-shadow: 0 6px 20px var(--accent-glow);
@@ -164,12 +164,12 @@
   .speed, .toggle-container {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 8px 14px;
-    font-size: 13.5px;
+    padding: 8px 12px;
+    font-size: 13px;
     color: var(--muted);
     font-weight: 500;
   }
@@ -180,7 +180,7 @@
   
   input[type=range] {
     accent-color: var(--accent);
-    width: 90px;
+    width: 80px;
     cursor: pointer;
   }
   .speed b {
@@ -192,8 +192,8 @@
 
   .toggle-container input[type=checkbox] {
     accent-color: var(--accent);
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
     cursor: pointer;
   }
   .toggle-container label {
@@ -407,18 +407,28 @@
     <button id="startBtn">Start rotation</button>
     <button id="resetBtn" class="secondary">Reset</button>
     
-    <div class="toggle-container">
+    <div class="toggle-container" title="Show Sun and shadows to teach Day and Night.">
       <input type="checkbox" id="dayNightToggle">
-      <label for="dayNightToggle">Show Sun (Day/Night)</label>
+      <label for="dayNightToggle">Show Sun</label>
     </div>
 
-    <div class="toggle-container">
+    <div class="toggle-container" title="Tilt the globe by 23.5 degrees to teach seasons.">
       <input type="checkbox" id="tiltToggle">
-      <label for="tiltToggle">Show Tilt (23.5°)</label>
+      <label for="tiltToggle">Show Tilt</label>
+    </div>
+
+    <div class="toggle-container" title="Play sound cues for ticks, chimes, and state changes.">
+      <input type="checkbox" id="soundToggle" checked>
+      <label for="soundToggle">Sound Clues</label>
+    </div>
+
+    <div class="toggle-container" title="Announce details using your screen reader in real-time.">
+      <input type="checkbox" id="speechToggle" checked>
+      <label for="speechToggle">Spoken Announcements</label>
     </div>
 
     <div class="speed">
-      <label for="speed">Animation Speed</label>
+      <label for="speed">Speed</label>
       <input id="speed" type="range" min="0.3" max="4" step="0.1" value="1">
       <b id="speedVal">1 hr / 1.5s</b>
     </div>
@@ -476,6 +486,9 @@
   const tiltToggle = document.getElementById('tiltToggle');
   const globeGroup = document.getElementById('globeGroup');
 
+  const soundToggle = document.getElementById('soundToggle');
+  const speechToggle = document.getElementById('speechToggle');
+
   const BASE_HOUR_MS = 1500;
 
   // Populate Background Starfield
@@ -507,6 +520,128 @@
   let rafId = null;
   let lastTs = null;
   let announcedHour = -1;
+
+  // Web Audio Synth Engine
+  let audioCtx = null;
+  function getAudioContext() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  function playSound(type) {
+    if (!soundToggle.checked) return;
+    try {
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
+      
+      if (type === 'start') {
+        // Friendly rising beep
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(330, now);
+        osc.frequency.exponentialRampToValueAtTime(440, now + 0.12);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (type === 'pause') {
+        // Friendly falling beep
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(330, now + 0.12);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (type === 'tick') {
+        // Soft woodblock click
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(900, now);
+        osc.frequency.exponentialRampToValueAtTime(150, now + 0.03);
+        gain.gain.setValueAtTime(0.06, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.03);
+      } else if (type === 'transition') {
+        // Twilight boundary chime (two harmonious notes)
+        const playTone = (freq, startOffset, duration) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + startOffset);
+          gain.gain.setValueAtTime(0.08, now + startOffset);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + startOffset + duration);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + startOffset);
+          osc.stop(now + startOffset + duration);
+        };
+        playTone(440, 0, 0.35); // A4
+        playTone(554, 0.06, 0.35); // C#5
+      } else if (type === 'complete') {
+        // Celebrating ascending arpeggio
+        const notes = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+        notes.forEach((freq, index) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + index * 0.08);
+          gain.gain.setValueAtTime(0.1, now + index * 0.08);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + index * 0.08 + 0.35);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + index * 0.08);
+          osc.stop(now + index * 0.08 + 0.35);
+        });
+      } else if (type === 'reset') {
+        // Fast double click
+        const click = (time) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(1000, time);
+          gain.gain.setValueAtTime(0.04, time);
+          gain.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(time);
+          osc.stop(time + 0.03);
+        };
+        click(now);
+        click(now + 0.06);
+      } else if (type === 'toggle') {
+        // Toggle click
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(650, now);
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.04);
+      }
+    } catch (e) {
+      console.warn("Audio Context init blocked or failed:", e);
+    }
+  }
 
   function hourMs() { 
     return BASE_HOUR_MS / parseFloat(speed.value); 
@@ -587,10 +722,16 @@
     lonEl.textContent = lonStr;
   }
 
-  function announce(msg) {
-    statusEl.textContent = msg;
-    srLive.textContent = '';
-    setTimeout(() => { srLive.textContent = msg; }, 30);
+  function announce(msg, spokenOnly = false) {
+    if (!spokenOnly) {
+      statusEl.textContent = msg;
+    }
+    
+    // Only speak through the screen reader if the toggle is checked
+    if (speechToggle.checked) {
+      srLive.textContent = '';
+      setTimeout(() => { srLive.textContent = msg; }, 30);
+    }
   }
 
   function blink(el, on) { el.classList.toggle('blink', on); }
@@ -601,6 +742,8 @@
     if (angle >= 360) reset(); 
     running = true;
     startBtn.textContent = 'Pause';
+    
+    playSound('start');
     
     let activeMsg = 'Rotation started at 0° longitude (Prime Meridian).';
     if (dayNightToggle.checked) {
@@ -620,12 +763,16 @@
     startBtn.textContent = 'Resume';
     cancelAnimationFrame(rafId);
     
+    playSound('pause');
+    
     let pauseMsg = `Paused at ${Math.round(angle)}° — ${Math.floor(angle / 15)} hours elapsed.`;
     if (dayNightToggle.checked) {
       pauseMsg += ` The Prime Meridian is ${getPrimeMeridianStatus()}.`;
     }
     announce(pauseMsg);
   }
+
+  let wasInTransition = false;
 
   function tick(ts) {
     if (!running) return;
@@ -644,13 +791,32 @@
     if (wholeHour > announcedHour && wholeHour <= 24) {
       announcedHour = wholeHour;
       const deg = wholeHour * 15;
+      
+      // Play a soft wooden click for each hour passed
+      playSound('tick');
+      
       if (wholeHour < 24) {
         let msg = `${wholeHour} hour${wholeHour > 1 ? 's' : ''} elapsed — rotated ${deg}°.`;
         if (dayNightToggle.checked) {
           msg += ` The Prime Meridian is ${getPrimeMeridianStatus()}.`;
         }
-        announce(msg);
+        // Spoken announcement for the hour milestone (only reads aloud if speechToggle is checked)
+        announce(msg, true); // true = spoken only, doesn't overwrite visual status bar
+        statusEl.textContent = `${wholeHour} hour${wholeHour > 1 ? 's' : ''} elapsed — rotated ${deg}°.`;
       }
+    }
+
+    // Play a chime if Day/Night mode is active and the Prime Meridian crosses Sunset or Sunrise
+    if (dayNightToggle.checked) {
+      let primePhi = angle % 360;
+      if (primePhi > 180) primePhi -= 360;
+      if (primePhi < -180) primePhi += 360;
+      
+      const inTransition = Math.abs(primePhi) <= 4 || Math.abs(Math.abs(primePhi) - 90) < 4;
+      if (inTransition && !wasInTransition) {
+        playSound('transition');
+      }
+      wasInTransition = inTransition;
     }
 
     if (angle >= 360) {
@@ -663,6 +829,7 @@
   function finish() {
     running = false;
     startBtn.textContent = 'Start rotation';
+    playSound('complete');
     
     let finishMsg = '24 hours (360°) completed — one full rotation! The Prime Meridian is back at front center.';
     if (dayNightToggle.checked) {
@@ -681,7 +848,11 @@
     angle = 0; 
     announcedHour = -1; 
     lastTs = null;
+    wasInTransition = false;
     startBtn.textContent = 'Start rotation';
+    
+    playSound('reset');
+    
     blink(lblWest, false); blink(lblEast, false);
     active(lblWest, false); active(lblEast, false);
     drawMeridians(); 
@@ -697,6 +868,7 @@
     announce(resetMsg);
   }
 
+  // Interactive Drag-to-Rotate
   let isDragging = false;
   let startX = 0;
   let startAngle = 0;
@@ -715,6 +887,13 @@
     angle = (startAngle - dx * 0.5) % 360;
     if (angle < 0) angle += 360;
     
+    // Play subtle clicking sounds when dragging manually
+    const roundedHour = Math.floor(angle / 15);
+    if (roundedHour !== announcedHour) {
+      announcedHour = roundedHour;
+      playSound('tick');
+    }
+
     drawMeridians();
     setReadout();
   }
@@ -724,14 +903,18 @@
     isDragging = false;
   }
 
+  // Bind Event Listeners
   startBtn.addEventListener('click', () => { running ? pause() : start(); });
   resetBtn.addEventListener('click', reset);
   speed.addEventListener('input', updateSpeedLabel);
 
+  // Toggle Day/Night Mode
   dayNightToggle.addEventListener('change', () => {
     const show = dayNightToggle.checked;
     sunGroup.style.display = show ? 'inline' : 'none';
     shadowOverlay.style.display = show ? 'inline' : 'none';
+    
+    playSound('toggle');
     
     if (show) {
       announce("Day and Night mode enabled. The Sun is on the left, lighting up the left side as Day. The right side is in shadow (Night).");
@@ -743,9 +926,12 @@
     setReadout();
   });
 
+  // Toggle Axial Tilt
   tiltToggle.addEventListener('change', () => {
     const tilted = tiltToggle.checked;
     globeGroup.style.transform = tilted ? 'rotate(23.5deg)' : 'rotate(0deg)';
+    
+    playSound('toggle');
     
     if (tilted) {
       announce("Axial tilt enabled. The Earth is tilted 23.5 degrees to the East. The North Pole is now tilted away from the Sun, and the South Pole is tilted towards the Sun.");
@@ -754,14 +940,32 @@
     }
   });
 
+  // Sound and Speech configuration click effects
+  soundToggle.addEventListener('change', () => {
+    if (soundToggle.checked) {
+      // test sound confirmation
+      playSound('toggle');
+    }
+  });
+
+  speechToggle.addEventListener('change', () => {
+    playSound('toggle');
+    if (speechToggle.checked) {
+      announce("Spoken announcements enabled.");
+    }
+  });
+
+  // Mouse drag events
   globeStage.addEventListener('mousedown', dragStart);
   window.addEventListener('mousemove', dragMove);
   window.addEventListener('mouseup', dragEnd);
 
+  // Touch drag events (mobile)
   globeStage.addEventListener('touchstart', dragStart, { passive: true });
   window.addEventListener('touchmove', dragMove, { passive: true });
   window.addEventListener('touchend', dragEnd);
 
+  // Initialize
   updateSpeedLabel(); 
   drawMeridians(); 
   setReadout();
