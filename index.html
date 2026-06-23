@@ -160,8 +160,8 @@
     outline-offset: 2px;
   }
 
-  /* Speed Slider Container */
-  .speed {
+  /* Slider & Checkbox Containers */
+  .speed, .toggle-container {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -173,10 +173,14 @@
     color: var(--muted);
     font-weight: 500;
   }
-  .speed label { white-space: nowrap; }
+  .speed label, .toggle-container label { 
+    white-space: nowrap; 
+    cursor: pointer;
+  }
+  
   input[type=range] {
     accent-color: var(--accent);
-    width: 130px;
+    width: 110px;
     cursor: pointer;
   }
   .speed b {
@@ -184,6 +188,17 @@
     min-width: 80px;
     text-align: right;
     font-variant-numeric: tabular-nums;
+  }
+
+  .toggle-container input[type=checkbox] {
+    accent-color: var(--accent);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+  .toggle-container label {
+    user-select: none;
+    color: var(--ink);
   }
 
   /* Readout panel */
@@ -318,10 +333,28 @@
         <clipPath id="globeClip">
           <circle cx="200" cy="200" r="120"/>
         </clipPath>
+
+        <!-- Day/Night Shading Gradient (Sun on the left) -->
+        <linearGradient id="nightShadow" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="42%" stop-color="#000" stop-opacity="0"/>
+          <stop offset="58%" stop-color="#000" stop-opacity="0.75"/>
+        </linearGradient>
       </defs>
 
       <!-- Background Stars (Populated via JS) -->
       <g id="stars" opacity="0.65"></g>
+
+      <!-- Optional Sun (Visible only in Day/Night mode) -->
+      <g id="sunGroup" style="display: none;">
+        <!-- Sun outer glow -->
+        <circle cx="35" cy="200" r="24" fill="#ffdf6d" opacity="0.15" filter="url(#atmosphereGlow)"/>
+        <circle cx="35" cy="200" r="16" fill="#ffcf4d" opacity="0.3" filter="url(#atmosphereGlow)"/>
+        <!-- Sun body -->
+        <circle cx="35" cy="200" r="10" fill="#fffbde"/>
+        <circle cx="35" cy="200" r="10" fill="none" stroke="#ffcf4d" stroke-width="2"/>
+        <!-- Light Rays -->
+        <path d="M 50 195 L 74 191 M 52 200 L 77 200 M 50 205 L 74 209 M 47 188 L 68 178 M 47 212 L 68 222" stroke="#ffcf4d" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+      </g>
 
       <!-- Direction Labels -->
       <text id="lblNorth" class="dir active" x="200" y="44">N</text>
@@ -350,6 +383,9 @@
 
         <!-- Dynamic Longitude Lines (Meridians) -->
         <g id="meridiansGroup"></g>
+
+        <!-- Shading Overlay (Visible only in Day/Night mode, darkens right half) -->
+        <rect id="shadowOverlay" x="80" y="80" width="240" height="240" fill="url(#nightShadow)" pointer-events="none" style="display: none;"/>
       </g>
 
       <!-- 3D Rim Highlights -->
@@ -362,6 +398,12 @@
   <div class="controls">
     <button id="startBtn">Start rotation</button>
     <button id="resetBtn" class="secondary">Reset</button>
+    
+    <div class="toggle-container">
+      <input type="checkbox" id="dayNightToggle">
+      <label for="dayNightToggle">Show Sun (Day/Night)</label>
+    </div>
+
     <div class="speed">
       <label for="speed">Animation Speed</label>
       <input id="speed" type="range" min="0.3" max="4" step="0.1" value="1">
@@ -413,6 +455,10 @@
   const lblWest = document.getElementById('lblWest');
   const lblEast = document.getElementById('lblEast');
   const globeStage = document.getElementById('globeStage');
+
+  const dayNightToggle = document.getElementById('dayNightToggle');
+  const sunGroup = document.getElementById('sunGroup');
+  const shadowOverlay = document.getElementById('shadowOverlay');
 
   const BASE_HOUR_MS = 1500;
 
@@ -485,6 +531,28 @@
     });
   }
 
+  // Get current state of the Prime Meridian relative to Sun (on the left)
+  function getPrimeMeridianStatus() {
+    let primePhi = angle % 360;
+    if (primePhi > 180) primePhi -= 360;
+    if (primePhi < -180) primePhi += 360;
+
+    if (Math.abs(primePhi) <= 4) {
+      return "at Sunset (crossing into Night)";
+    } else if (primePhi < -4 && primePhi >= -90) {
+      return "on the illuminated Day side";
+    } else if (primePhi > 4 && primePhi <= 90) {
+      return "in the shaded Night side";
+    } else {
+      if (primePhi < -90 || primePhi > 90) {
+        if (Math.abs(Math.abs(primePhi) - 90) < 5) {
+          return "at Sunrise (emerging into Day)";
+        }
+      }
+      return "on the hidden back side";
+    }
+  }
+
   function setReadout() {
     const totalHours = angle / 15;
     const wholeHours = Math.floor(totalHours + 1e-6);
@@ -517,7 +585,12 @@
     if (angle >= 360) reset(); 
     running = true;
     startBtn.textContent = 'Pause';
-    announce('Rotation started at 0° longitude (Prime Meridian).');
+    
+    let activeMsg = 'Rotation started at 0° longitude (Prime Meridian).';
+    if (dayNightToggle.checked) {
+      activeMsg += ` The Prime Meridian is currently ${getPrimeMeridianStatus()}.`;
+    }
+    announce(activeMsg);
     
     blink(lblWest, true); active(lblWest, true); active(lblEast, true);
     setTimeout(() => { blink(lblWest, false); }, 1500);
@@ -530,7 +603,12 @@
     running = false;
     startBtn.textContent = 'Resume';
     cancelAnimationFrame(rafId);
-    announce(`Paused at ${Math.round(angle)}° — ${Math.floor(angle / 15)} hours elapsed.`);
+    
+    let pauseMsg = `Paused at ${Math.round(angle)}° — ${Math.floor(angle / 15)} hours elapsed.`;
+    if (dayNightToggle.checked) {
+      pauseMsg += ` The Prime Meridian is ${getPrimeMeridianStatus()}.`;
+    }
+    announce(pauseMsg);
   }
 
   function tick(ts) {
@@ -551,7 +629,11 @@
       announcedHour = wholeHour;
       const deg = wholeHour * 15;
       if (wholeHour < 24) {
-        announce(`${wholeHour} hour${wholeHour > 1 ? 's' : ''} elapsed — rotated ${deg}°.`);
+        let msg = `${wholeHour} hour${wholeHour > 1 ? 's' : ''} elapsed — rotated ${deg}°.`;
+        if (dayNightToggle.checked) {
+          msg += ` The Prime Meridian is ${getPrimeMeridianStatus()}.`;
+        }
+        announce(msg);
       }
     }
 
@@ -565,7 +647,12 @@
   function finish() {
     running = false;
     startBtn.textContent = 'Start rotation';
-    announce('24 hours (360°) completed — one full rotation! The Prime Meridian is back at front center.');
+    
+    let finishMsg = '24 hours (360°) completed — one full rotation! The Prime Meridian is back at front center.';
+    if (dayNightToggle.checked) {
+      finishMsg += ` It is ${getPrimeMeridianStatus()}.`;
+    }
+    announce(finishMsg);
     
     blink(lblWest, false); active(lblWest, false);
     blink(lblEast, true);
@@ -583,7 +670,12 @@
     active(lblWest, false); active(lblEast, false);
     drawMeridians(); 
     setReadout();
-    announce('Ready. Press Start to begin at 0° longitude (the Prime Meridian).');
+    
+    let resetMsg = 'Ready. Press Start to begin at 0° longitude (the Prime Meridian).';
+    if (dayNightToggle.checked) {
+      resetMsg += ' Day/Night mode is active.';
+    }
+    announce(resetMsg);
   }
 
   let isDragging = false;
@@ -616,6 +708,21 @@
   startBtn.addEventListener('click', () => { running ? pause() : start(); });
   resetBtn.addEventListener('click', reset);
   speed.addEventListener('input', updateSpeedLabel);
+
+  dayNightToggle.addEventListener('change', () => {
+    const show = dayNightToggle.checked;
+    sunGroup.style.display = show ? 'inline' : 'none';
+    shadowOverlay.style.display = show ? 'inline' : 'none';
+    
+    if (show) {
+      announce("Day and Night mode enabled. The Sun is on the left, lighting up the left side as Day. The right side is in shadow (Night).");
+    } else {
+      announce("Day and Night mode disabled. Standard rotation view active.");
+    }
+    
+    drawMeridians();
+    setReadout();
+  });
 
   globeStage.addEventListener('mousedown', dragStart);
   window.addEventListener('mousemove', dragMove);
