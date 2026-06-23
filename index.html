@@ -38,7 +38,7 @@
   }
 
   .wrap {
-    max-width: 800px;
+    max-width: 850px;
     width: 100%;
     margin: 0 auto;
     backdrop-filter: blur(10px);
@@ -118,7 +118,7 @@
   .controls {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px;
+    gap: 12px;
     align-items: center;
     justify-content: center;
     margin-top: 16px;
@@ -127,12 +127,12 @@
   button {
     font-family: inherit;
     font-weight: 600;
-    font-size: 16px;
+    font-size: 15px;
     color: #050a15;
     background: linear-gradient(135deg, var(--accent) 0%, #ffbd1e 100%);
     border: 0;
     border-radius: 14px;
-    padding: 14px 28px;
+    padding: 12px 24px;
     cursor: pointer;
     transition: transform 0.1s, box-shadow 0.2s, filter 0.2s;
     box-shadow: 0 6px 20px var(--accent-glow);
@@ -164,12 +164,12 @@
   .speed, .toggle-container {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 10px 16px;
-    font-size: 14px;
+    padding: 8px 14px;
+    font-size: 13.5px;
     color: var(--muted);
     font-weight: 500;
   }
@@ -180,7 +180,7 @@
   
   input[type=range] {
     accent-color: var(--accent);
-    width: 110px;
+    width: 90px;
     cursor: pointer;
   }
   .speed b {
@@ -192,8 +192,8 @@
 
   .toggle-container input[type=checkbox] {
     accent-color: var(--accent);
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
     cursor: pointer;
   }
   .toggle-container label {
@@ -295,6 +295,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .dir.blink { animation: none; opacity: 1; }
+    #globeGroup { transition: none !important; }
   }
 </style>
 </head>
@@ -356,39 +357,46 @@
         <path d="M 50 195 L 74 191 M 52 200 L 77 200 M 50 205 L 74 209 M 47 188 L 68 178 M 47 212 L 68 222" stroke="#ffcf4d" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
       </g>
 
-      <!-- Direction Labels -->
-      <text id="lblNorth" class="dir active" x="200" y="44">N</text>
-      <text id="lblSouth" class="dir active" x="200" y="360">S</text>
+      <!-- Fixed Directions in Space (W, E) -->
       <text id="lblWest"  class="dir" x="40"  y="202">W</text>
       <text id="lblEast"  class="dir" x="360" y="202">E</text>
 
       <!-- Outer Atmosphere Glow -->
       <circle cx="200" cy="200" r="121" fill="none" stroke="#2563eb" stroke-width="3" opacity="0.25" filter="url(#atmosphereGlow)"/>
 
-      <!-- Globe Base Sphere -->
-      <circle cx="200" cy="200" r="120" fill="url(#sphereGrad)"/>
+      <!-- Globe Group (Tilts via CSS transition) -->
+      <g id="globeGroup" style="transform: rotate(0deg); transform-origin: 200px 200px; transition: transform 0.8s ease-in-out;">
+        <!-- Globe Base Sphere -->
+        <circle cx="200" cy="200" r="120" fill="url(#sphereGrad)"/>
 
-      <!-- Clip Container for rotating grid lines -->
-      <g clip-path="url(#globeClip)">
-        <!-- Static Latitude Lines (Parallels) -->
-        <g stroke="rgba(255,255,255,0.08)" stroke-width="1" fill="none">
-          <!-- Equator (straight) -->
-          <line x1="80" y1="200" x2="320" y2="200" stroke="var(--grid)" stroke-width="1.2" opacity="0.3"/>
-          <!-- Other parallels (orthographic straight lines) -->
-          <line x1="96" y1="140" x2="304" y2="140"/>
-          <line x1="140" y1="96" x2="260" y2="96"/>
-          <line x1="96" y1="260" x2="304" y2="260"/>
-          <line x1="140" y1="304" x2="260" y2="304"/>
+        <!-- Clip Container for rotating grid lines -->
+        <g clip-path="url(#globeClip)">
+          <!-- Static Latitude Lines (Parallels) -->
+          <g stroke="rgba(255,255,255,0.08)" stroke-width="1" fill="none">
+            <!-- Equator (straight relative to globe, tilts with group) -->
+            <line x1="80" y1="200" x2="320" y2="200" stroke="var(--grid)" stroke-width="1.2" opacity="0.3"/>
+            <!-- Other parallels -->
+            <line x1="96" y1="140" x2="304" y2="140"/>
+            <line x1="140" y1="96" x2="260" y2="96"/>
+            <line x1="96" y1="260" x2="304" y2="260"/>
+            <line x1="140" y1="304" x2="260" y2="304"/>
+          </g>
+
+          <!-- Dynamic Longitude Lines (Meridians) -->
+          <g id="meridiansGroup"></g>
         </g>
 
-        <!-- Dynamic Longitude Lines (Meridians) -->
-        <g id="meridiansGroup"></g>
+        <!-- Direction Labels N and S (Tilted with the globe poles) -->
+        <text id="lblNorth" class="dir active" x="200" y="44">N</text>
+        <text id="lblSouth" class="dir active" x="200" y="360">S</text>
+      </g>
 
-        <!-- Shading Overlay (Visible only in Day/Night mode, darkens right half) -->
+      <!-- Shading Overlay (Fixed vertically in space, on top of globe to darken) -->
+      <g clip-path="url(#globeClip)">
         <rect id="shadowOverlay" x="80" y="80" width="240" height="240" fill="url(#nightShadow)" pointer-events="none" style="display: none;"/>
       </g>
 
-      <!-- 3D Rim Highlights -->
+      <!-- 3D Rim Highlights (Fixed on top for gloss effect) -->
       <circle cx="200" cy="200" r="120" fill="url(#rimGlow)" pointer-events="none"/>
       <circle cx="200" cy="200" r="120" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" pointer-events="none"/>
     </svg>
@@ -402,6 +410,11 @@
     <div class="toggle-container">
       <input type="checkbox" id="dayNightToggle">
       <label for="dayNightToggle">Show Sun (Day/Night)</label>
+    </div>
+
+    <div class="toggle-container">
+      <input type="checkbox" id="tiltToggle">
+      <label for="tiltToggle">Show Tilt (23.5°)</label>
     </div>
 
     <div class="speed">
@@ -459,6 +472,9 @@
   const dayNightToggle = document.getElementById('dayNightToggle');
   const sunGroup = document.getElementById('sunGroup');
   const shadowOverlay = document.getElementById('shadowOverlay');
+  
+  const tiltToggle = document.getElementById('tiltToggle');
+  const globeGroup = document.getElementById('globeGroup');
 
   const BASE_HOUR_MS = 1500;
 
@@ -675,6 +691,9 @@
     if (dayNightToggle.checked) {
       resetMsg += ' Day/Night mode is active.';
     }
+    if (tiltToggle.checked) {
+      resetMsg += ' Axial tilt is active.';
+    }
     announce(resetMsg);
   }
 
@@ -722,6 +741,17 @@
     
     drawMeridians();
     setReadout();
+  });
+
+  tiltToggle.addEventListener('change', () => {
+    const tilted = tiltToggle.checked;
+    globeGroup.style.transform = tilted ? 'rotate(23.5deg)' : 'rotate(0deg)';
+    
+    if (tilted) {
+      announce("Axial tilt enabled. The Earth is tilted 23.5 degrees to the East. The North Pole is now tilted away from the Sun, and the South Pole is tilted towards the Sun.");
+    } else {
+      announce("Axial tilt disabled. The Earth's axis is vertical.");
+    }
   });
 
   globeStage.addEventListener('mousedown', dragStart);
