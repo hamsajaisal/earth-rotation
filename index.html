@@ -340,10 +340,24 @@
           <stop offset="42%" stop-color="#000" stop-opacity="0"/>
           <stop offset="58%" stop-color="#000" stop-opacity="0.75"/>
         </linearGradient>
+
+        <!-- Giant Sun Gradient (Upright on the left) -->
+        <radialGradient id="giantSunGrad" cx="0%" cy="50%" r="100%">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="25%" stop-color="#fff0be"/>
+          <stop offset="65%" stop-color="#ffc634"/>
+          <stop offset="100%" stop-color="#ff7b00" stop-opacity="0"/>
+        </radialGradient>
       </defs>
 
       <!-- Background Stars (Populated via JS) -->
       <g id="stars" opacity="0.65"></g>
+
+      <!-- Giant Sun (Fixed in space on the left, stays upright, larger than Earth) -->
+      <g id="sunGroup" style="display: none;">
+        <!-- Large glowing shape representing the massive Sun's edge -->
+        <path d="M 0 40 Q 55 200 0 360 Z" fill="url(#giantSunGrad)" filter="url(#atmosphereGlow)" opacity="0.95"/>
+      </g>
 
       <!-- Fixed Directions in Space (W, E) -->
       <text id="lblWest"  class="dir" x="40"  y="202">W</text>
@@ -354,16 +368,9 @@
 
       <!-- Globe & Lighting Group (Tilts via CSS transition) -->
       <g id="globeGroup" style="transform: rotate(0deg); transform-origin: 200px 200px; transition: transform 0.8s ease-in-out;">
-        <!-- Optional Sun (Now inside the tilted group so it tilts with the Equator) -->
-        <g id="sunGroup" style="display: none;">
-          <!-- Sun outer glow -->
-          <circle cx="35" cy="200" r="24" fill="#ffdf6d" opacity="0.15" filter="url(#atmosphereGlow)"/>
-          <circle cx="35" cy="200" r="16" fill="#ffcf4d" opacity="0.3" filter="url(#atmosphereGlow)"/>
-          <!-- Sun body -->
-          <circle cx="35" cy="200" r="10" fill="#fffbde"/>
-          <circle cx="35" cy="200" r="10" fill="none" stroke="#ffcf4d" stroke-width="2"/>
-          <!-- Light Rays -->
-          <path d="M 50 195 L 74 191 M 52 200 L 77 200 M 50 205 L 74 209 M 47 188 L 68 178 M 47 212 L 68 222" stroke="#ffcf4d" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+        <!-- Light Rays (Inside tilted group so they remain parallel to Equator / perpendicular to axis) -->
+        <g id="raysGroup" style="display: none;">
+          <path d="M 46 193 L 74 191 M 48 200 L 77 200 M 46 207 L 74 209 M 42 182 L 68 174 M 42 218 L 68 226" stroke="#ffcf4d" stroke-width="1.5" stroke-linecap="round" opacity="0.65"/>
         </g>
         
         <!-- Globe Base Sphere -->
@@ -483,6 +490,7 @@
   
   const tiltToggle = document.getElementById('tiltToggle');
   const globeGroup = document.getElementById('globeGroup');
+  const raysGroup = document.getElementById('raysGroup');
 
   const soundToggle = document.getElementById('soundToggle');
   const speechToggle = document.getElementById('speechToggle');
@@ -910,12 +918,13 @@
   dayNightToggle.addEventListener('change', () => {
     const show = dayNightToggle.checked;
     sunGroup.style.display = show ? 'inline' : 'none';
+    raysGroup.style.display = show ? 'inline' : 'none';
     shadowOverlay.style.display = show ? 'inline' : 'none';
     
     playSound('toggle');
     
     if (show) {
-      announce("Day and Night mode enabled. The Sun is on the left, lighting up the left side as Day. The right side is in shadow (Night).");
+      announce("Day and Night mode enabled. A giant Sun is on the left, lighting up the left side as Day. The right side is in shadow (Night).");
     } else {
       announce("Day and Night mode disabled. Standard rotation view active.");
     }
@@ -932,7 +941,7 @@
     playSound('toggle');
     
     if (tilted) {
-      announce("Axial tilt enabled. The Earth is tilted 23.5 degrees to the East. The Sun and shadow tilt together to keep the rays aligned with the Equator.");
+      announce("Axial tilt enabled. The Earth is tilted 23.5 degrees to the East. The Sun stays upright, and the light rays tilt to stay aligned with the Equator.");
     } else {
       announce("Axial tilt disabled. The Earth's axis is vertical.");
     }
