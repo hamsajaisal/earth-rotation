@@ -345,18 +345,6 @@
       <!-- Background Stars (Populated via JS) -->
       <g id="stars" opacity="0.65"></g>
 
-      <!-- Optional Sun (Visible only in Day/Night mode) -->
-      <g id="sunGroup" style="display: none;">
-        <!-- Sun outer glow -->
-        <circle cx="35" cy="200" r="24" fill="#ffdf6d" opacity="0.15" filter="url(#atmosphereGlow)"/>
-        <circle cx="35" cy="200" r="16" fill="#ffcf4d" opacity="0.3" filter="url(#atmosphereGlow)"/>
-        <!-- Sun body -->
-        <circle cx="35" cy="200" r="10" fill="#fffbde"/>
-        <circle cx="35" cy="200" r="10" fill="none" stroke="#ffcf4d" stroke-width="2"/>
-        <!-- Light Rays -->
-        <path d="M 50 195 L 74 191 M 52 200 L 77 200 M 50 205 L 74 209 M 47 188 L 68 178 M 47 212 L 68 222" stroke="#ffcf4d" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
-      </g>
-
       <!-- Fixed Directions in Space (W, E) -->
       <text id="lblWest"  class="dir" x="40"  y="202">W</text>
       <text id="lblEast"  class="dir" x="360" y="202">E</text>
@@ -364,8 +352,20 @@
       <!-- Outer Atmosphere Glow -->
       <circle cx="200" cy="200" r="121" fill="none" stroke="#2563eb" stroke-width="3" opacity="0.25" filter="url(#atmosphereGlow)"/>
 
-      <!-- Globe Group (Tilts via CSS transition) -->
+      <!-- Globe & Lighting Group (Tilts via CSS transition) -->
       <g id="globeGroup" style="transform: rotate(0deg); transform-origin: 200px 200px; transition: transform 0.8s ease-in-out;">
+        <!-- Optional Sun (Now inside the tilted group so it tilts with the Equator) -->
+        <g id="sunGroup" style="display: none;">
+          <!-- Sun outer glow -->
+          <circle cx="35" cy="200" r="24" fill="#ffdf6d" opacity="0.15" filter="url(#atmosphereGlow)"/>
+          <circle cx="35" cy="200" r="16" fill="#ffcf4d" opacity="0.3" filter="url(#atmosphereGlow)"/>
+          <!-- Sun body -->
+          <circle cx="35" cy="200" r="10" fill="#fffbde"/>
+          <circle cx="35" cy="200" r="10" fill="none" stroke="#ffcf4d" stroke-width="2"/>
+          <!-- Light Rays -->
+          <path d="M 50 195 L 74 191 M 52 200 L 77 200 M 50 205 L 74 209 M 47 188 L 68 178 M 47 212 L 68 222" stroke="#ffcf4d" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+        </g>
+        
         <!-- Globe Base Sphere -->
         <circle cx="200" cy="200" r="120" fill="url(#sphereGrad)"/>
 
@@ -384,16 +384,14 @@
 
           <!-- Dynamic Longitude Lines (Meridians) -->
           <g id="meridiansGroup"></g>
+          
+          <!-- Shading Overlay (Inside the tilted group so the shadow boundary tilts with the Earth's axis) -->
+          <rect id="shadowOverlay" x="80" y="80" width="240" height="240" fill="url(#nightShadow)" pointer-events="none" style="display: none;"/>
         </g>
 
         <!-- Direction Labels N and S (Tilted with the globe poles) -->
         <text id="lblNorth" class="dir active" x="200" y="44">N</text>
         <text id="lblSouth" class="dir active" x="200" y="360">S</text>
-      </g>
-
-      <!-- Shading Overlay (Fixed vertically in space, on top of globe to darken) -->
-      <g clip-path="url(#globeClip)">
-        <rect id="shadowOverlay" x="80" y="80" width="240" height="240" fill="url(#nightShadow)" pointer-events="none" style="display: none;"/>
       </g>
 
       <!-- 3D Rim Highlights (Fixed on top for gloss effect) -->
@@ -417,7 +415,7 @@
       <label for="tiltToggle">Show Tilt</label>
     </div>
 
-    <div class="toggle-container" title="Play sound cues for ticks, chimes, and state changes.">
+    <div class="toggle-container" title="Play sound clues for ticks, chimes, and state changes.">
       <input type="checkbox" id="soundToggle" checked>
       <label for="soundToggle">Sound Clues</label>
     </div>
@@ -934,7 +932,7 @@
     playSound('toggle');
     
     if (tilted) {
-      announce("Axial tilt enabled. The Earth is tilted 23.5 degrees to the East. The North Pole is now tilted away from the Sun, and the South Pole is tilted towards the Sun.");
+      announce("Axial tilt enabled. The Earth is tilted 23.5 degrees to the East. The Sun and shadow tilt together to keep the rays aligned with the Equator.");
     } else {
       announce("Axial tilt disabled. The Earth's axis is vertical.");
     }
